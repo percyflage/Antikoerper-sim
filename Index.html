@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Antikörper Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&family=Metal+Mania&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --curtain:#0c0e20;
+    --curtain-deep:#05060e;
+    --gold:#ec3b9c;      /* Primär: Pink */
+    --gold-hi:#ff63b4;
+    --ice:#38d9e8;       /* Sekundär: Cyan */
+    --ice-deep:#1fa6bb;
+    --cream:#eaf0ff;
+    --cream-dim:#98a1c6;
+    --danger:#ff4d6d;
+    --good:#43e6a0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:"Barlow",system-ui,sans-serif;
+    color:var(--cream);
+    background:
+      radial-gradient(90% 60% at 50% 4%, rgba(56,217,232,.10), transparent 55%),
+      radial-gradient(120% 90% at 50% 0%, #2a1a52 0%, var(--curtain) 44%, var(--curtain-deep) 100%);
+    min-height:100dvh;
+    display:flex;
+    justify-content:center;
+    padding:14px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{width:100%;max-width:560px;display:flex;flex-direction:column;gap:14px}
+
+  /* ---- Marquee title ---- */
+  .marquee{
+    position:relative;
+    text-align:center;
+    padding:20px 14px 16px;
+    border:2px solid rgba(236,59,156,.55);
+    border-radius:14px;
+    background:linear-gradient(180deg, rgba(0,0,0,.28), rgba(0,0,0,.05));
+    box-shadow:0 0 0 5px rgba(0,0,0,.25) inset, 0 14px 40px rgba(0,0,0,.4);
+    overflow:hidden;
+  }
+  .bulbs{position:absolute;inset:6px;border-radius:10px;pointer-events:none}
+  .bulbs::before{
+    content:"";position:absolute;inset:0;border-radius:10px;
+    background-image:radial-gradient(circle, var(--gold-hi) 40%, transparent 42%);
+    background-size:20px 20px;
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;mask-composite:exclude;
+    padding:0;border:6px solid transparent;
+    opacity:.9;
+    animation:chase 1.4s steps(2) infinite;
+  }
+  @keyframes chase{0%{opacity:.35}50%{opacity:.95}100%{opacity:.35}}
+  .marquee h1{
+    font-family:"Metal Mania","Anton",serif;
+    font-size:clamp(38px,11vw,66px);
+    letter-spacing:1px;line-height:.9;
+    color:var(--gold);
+    text-transform:uppercase;
+    text-shadow:0 0 2px #ff9ad4, 0 0 18px rgba(236,59,156,.7), 0 0 40px rgba(236,59,156,.35);
+    position:relative;
+  }
+  .marquee .est{
+    font-family:"Anton",sans-serif;
+    letter-spacing:2px;text-transform:uppercase;font-style:italic;
+    color:var(--ice);font-weight:400;font-size:clamp(18px,5.5vw,30px);margin-top:2px;position:relative;
+    text-shadow:0 0 16px rgba(56,217,232,.55);
+  }
+
+  /* ---- Dashboard ---- */
+  .dash{
+    display:flex;flex-direction:column;gap:12px;
+    padding:14px;border-radius:14px;
+    background:rgba(0,0,0,.24);
+    border:1px solid rgba(236,59,156,.18);
+  }
+  .meta{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .year{font-family:"Anton",sans-serif;font-size:26px;color:var(--cream);letter-spacing:1px}
+  .season{font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:2px;color:var(--cream-dim);font-weight:600;font-size:13px}
+  .status{font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;font-size:13px;color:var(--gold)}
+  .bar-row{display:flex;flex-direction:column;gap:5px}
+  .bar-label{display:flex;justify-content:space-between;font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:1.5px;font-weight:600;font-size:13px}
+  .bar{height:16px;border-radius:20px;background:rgba(0,0,0,.4);overflow:hidden;border:1px solid rgba(255,255,255,.08)}
+  .fill{height:100%;width:50%;border-radius:20px;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+  .fill.spass{background:linear-gradient(90deg,#b81f78,var(--gold),var(--gold-hi))}
+  .fill.beruchtigt{background:linear-gradient(90deg,#14606f,var(--ice-deep),var(--ice))}
+  .val-spass{color:var(--gold)}
+  .val-ber{color:var(--ice)}
+
+  /* ---- Stage ---- */
+  .stage{
+    position:relative;border-radius:14px;overflow:hidden;
+    min-height:230px;display:flex;align-items:center;justify-content:center;
+    padding:28px 34px;
+    background:
+      repeating-linear-gradient(60deg, rgba(255,255,255,.025) 0 1px, transparent 1px 26px),
+      repeating-linear-gradient(-60deg, rgba(255,255,255,.025) 0 1px, transparent 1px 26px),
+      radial-gradient(75% 120% at 50% -10%, rgba(56,217,232,.16), transparent 55%),
+      linear-gradient(180deg,#12132e,#07081a);
+    border:1px solid rgba(236,59,156,.28);
+  }
+  .curtain-l,.curtain-r{position:absolute;top:0;bottom:0;width:22px;
+    background:linear-gradient(90deg, rgba(0,0,0,.55), transparent);
+    box-shadow:none}
+  .curtain-l{left:0}.curtain-r{right:0;transform:scaleX(-1)}
+  .spotlight{position:absolute;top:-40px;left:50%;transform:translateX(-50%);
+    width:64%;height:200%;
+    background:radial-gradient(circle at top, rgba(190,235,255,.28), rgba(56,217,232,.12) 35%, transparent 62%);
+    pointer-events:none;opacity:0;transition:opacity .5s}
+  .stage.lit .spotlight{opacity:1}
+  .event-card{position:relative;text-align:center;max-width:100%;
+    opacity:0;transform:translateY(10px);transition:opacity .45s,transform .45s}
+  .event-card.show{opacity:1;transform:none}
+  .tag{display:inline-block;font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;
+    letter-spacing:2px;font-weight:700;font-size:12px;padding:3px 12px;border-radius:20px;margin-bottom:10px}
+  .tag.triumph{background:rgba(104,224,160,.16);color:var(--good);border:1px solid rgba(104,224,160,.4)}
+  .tag.desaster{background:rgba(255,90,110,.14);color:var(--danger);border:1px solid rgba(255,90,110,.4)}
+  .tag.chaos{background:rgba(236,59,156,.14);color:var(--gold);border:1px solid rgba(236,59,156,.4)}
+  .tag.kult{background:rgba(111,208,232,.14);color:var(--ice);border:1px solid rgba(111,208,232,.4)}
+  .event-text{font-size:clamp(17px,4.8vw,21px);line-height:1.5;font-weight:500}
+  .idle-text{color:var(--cream-dim);font-size:clamp(16px,4.4vw,18px);line-height:1.55;font-weight:500}
+  .deltas{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+  .chip{font-family:"Barlow Condensed",sans-serif;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+    font-size:13px;padding:4px 11px;border-radius:8px;background:rgba(0,0,0,.35)}
+  .chip.pos{color:var(--good)}.chip.neg{color:var(--danger)}.chip.ice{color:var(--ice)}
+
+  /* ---- Actions ---- */
+  .prompt{font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:2px;
+    font-weight:600;color:var(--cream-dim);font-size:14px;text-align:center;margin-top:2px}
+  .actions{display:flex;flex-direction:column;gap:10px}
+  button.act{
+    font-family:"Anton",sans-serif;letter-spacing:1px;text-transform:uppercase;
+    font-size:clamp(16px,4.6vw,20px);color:#fff;
+    padding:15px 16px;border:none;border-radius:12px;cursor:pointer;
+    background:linear-gradient(180deg,var(--gold-hi),var(--gold));
+    box-shadow:0 6px 0 #8a1560, 0 10px 22px rgba(0,0,0,.45);
+    transition:transform .08s, box-shadow .08s, filter .2s;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+  }
+  button.act.trip{background:linear-gradient(180deg,#7fe9f3,var(--ice));color:#04222a;box-shadow:0 6px 0 #14606f,0 10px 22px rgba(0,0,0,.45)}
+  button.act.rest{background:linear-gradient(180deg,#3a3e66,#242741);color:#cdd6f5;box-shadow:0 6px 0 #14162c,0 10px 22px rgba(0,0,0,.45)}
+  button.act.fasching{background:linear-gradient(180deg,var(--gold-hi),var(--gold));color:#fff;box-shadow:0 6px 0 #8a1560,0 10px 22px rgba(0,0,0,.45)}
+  button.act.shop{background:linear-gradient(180deg,#57e6a5,#2bc98a);color:#05231a;box-shadow:0 6px 0 #137a55,0 10px 22px rgba(0,0,0,.45);font-size:clamp(14px,4vw,17px)}
+  button.act:active{transform:translateY(4px);box-shadow:0 2px 0 #8a1560,0 6px 12px rgba(0,0,0,.4)}
+  button.act.trip:active{box-shadow:0 2px 0 #14606f,0 6px 12px rgba(0,0,0,.4)}
+  button.act.rest:active{box-shadow:0 2px 0 #14162c,0 6px 12px rgba(0,0,0,.4)}
+  button.act.fasching:active{box-shadow:0 2px 0 #8a1560,0 6px 12px rgba(0,0,0,.4)}
+  button.act.shop:active{box-shadow:0 2px 0 #137a55,0 6px 12px rgba(0,0,0,.4)}
+  button.act:disabled{filter:grayscale(.5) brightness(.8);cursor:default;transform:none}
+  button.act:focus-visible{outline:3px solid var(--cream);outline-offset:3px}
+
+  /* ---- Chronicle ---- */
+  .chron{padding:12px 14px;border-radius:14px;background:rgba(0,0,0,.22);border:1px solid rgba(236,59,156,.14)}
+  .chron h2{font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:2px;
+    font-size:14px;color:var(--gold);margin-bottom:8px;font-weight:700}
+  .log{list-style:none;display:flex;flex-direction:column;gap:7px;max-height:230px;overflow-y:auto}
+  .log li{font-size:14px;line-height:1.35;color:var(--cream-dim);padding-left:10px;border-left:2px solid rgba(236,59,156,.3)}
+  .log li b{color:var(--cream);font-weight:600}
+  .log .empty{border:none;padding-left:0;font-style:italic}
+
+  .footer{display:flex;justify-content:center;gap:14px;padding-bottom:6px}
+  .ghost{background:none;border:1px solid rgba(236,59,156,.35);color:var(--cream-dim);
+    font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:1.5px;font-weight:600;
+    font-size:13px;padding:8px 16px;border-radius:9px;cursor:pointer}
+  .ghost:hover{color:var(--cream);border-color:var(--gold)}
+  .ghost:focus-visible{outline:2px solid var(--cream);outline-offset:2px}
+
+  /* ---- Game over overlay ---- */
+  .over{position:fixed;inset:0;background:rgba(8,2,5,.85);display:none;align-items:center;justify-content:center;padding:20px;z-index:20;backdrop-filter:blur(3px)}
+  .over.show{display:flex}
+  .over-box{max-width:420px;max-height:92dvh;overflow-y:auto;text-align:center;background:linear-gradient(180deg,#141634,#0a0b1c);
+    border:2px solid var(--gold);border-radius:16px;padding:28px 22px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  .over-box h2{font-family:"Anton",sans-serif;font-size:32px;color:var(--gold-hi);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
+  .over-box p{font-size:16px;line-height:1.5;color:var(--cream);margin-bottom:8px}
+  .over-box .stats{margin:8px 0 18px;text-transform:none;letter-spacing:normal;color:var(--cream-dim);font-size:14px;font-family:"Barlow",sans-serif}
+  .over-box .hero-pct{font-family:"Anton",sans-serif;font-size:74px;line-height:1;letter-spacing:1px;color:var(--gold);
+    text-shadow:0 0 24px rgba(236,59,156,.55);margin-top:6px}
+  .over-box .hero-sub{font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:2px;color:var(--cream-dim);font-size:13px;margin-bottom:14px}
+  .badges{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:0 0 16px}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-family:"Barlow",sans-serif;font-weight:700;font-size:14px;
+    padding:7px 12px;border-radius:20px;line-height:1;color:var(--cream)}
+  .badge.m{background:rgba(236,59,156,.15);border:1px solid rgba(236,59,156,.5)}
+  .badge.c{background:rgba(56,217,232,.13);border:1px solid rgba(56,217,232,.5)}
+  .moment{position:relative;text-align:left;background:rgba(255,255,255,.05);border:1px solid rgba(56,217,232,.4);
+    border-left:5px solid var(--ice);border-radius:12px;padding:12px 14px;margin:0 0 16px}
+  .moment .mlabel{font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:1.5px;color:var(--ice);font-size:12px;font-weight:700;margin-bottom:6px}
+  .moment .mtext{font-size:16px;line-height:1.4;color:var(--cream)}
+  .statlines{font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:1.2px;color:var(--cream-dim);font-size:14px;line-height:1.7}
+  .over-box .left-list{margin-top:12px;padding-top:10px;border-top:1px solid rgba(236,59,156,.25);
+    letter-spacing:.5px;text-transform:none;color:var(--ice);font-family:"Barlow",sans-serif;font-size:14px;line-height:1.45}
+  button.finish{margin-top:18px;width:100%;font-family:"Anton",sans-serif;letter-spacing:1px;text-transform:uppercase;
+    font-size:clamp(16px,4.6vw,19px);color:#fff;padding:14px;border:none;border-radius:12px;cursor:pointer;
+    background:linear-gradient(180deg,var(--gold-hi),var(--gold));box-shadow:0 5px 0 #8a1560,0 8px 18px rgba(0,0,0,.45)}
+  button.finish:active{transform:translateY(3px);box-shadow:0 2px 0 #8a1560}
+
+  /* ---- Kasse ---- */
+  .kasse-row{display:flex;justify-content:space-between;align-items:center;
+    padding:9px 12px;border-radius:10px;background:rgba(0,0,0,.32);border:1px solid rgba(236,59,156,.18)}
+  .kasse-label{font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:2px;font-weight:600;font-size:13px;color:var(--cream-dim)}
+  .kasse-val{font-family:"Anton",sans-serif;font-size:22px;letter-spacing:.5px;color:var(--good)}
+  .kasse-val.low{color:var(--gold)}
+  .kasse-val.neg{color:var(--danger)}
+  .kasse-warn{margin-top:-4px;padding:6px 10px;border-radius:8px;text-align:center;
+    background:rgba(255,90,110,.12);border:1px solid rgba(255,90,110,.4);color:var(--danger);
+    font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:1px;font-weight:700;font-size:12px}
+  .kasse-warn[hidden]{display:none}
+
+  /* ---- Ziel-Banner ---- */
+  .goal{display:flex;gap:8px;align-items:center;justify-content:center;text-align:center;
+    padding:10px 14px;border-radius:12px;
+    background:linear-gradient(180deg,rgba(236,59,156,.14),rgba(236,59,156,.05));
+    border:1px dashed rgba(236,59,156,.45);
+    font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:1.2px;
+    font-weight:600;font-size:14px;color:var(--cream)}
+  .goal.done{border-style:solid;border-color:var(--good);color:var(--good)}
+  .collect{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;
+    font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:1.2px;
+    font-weight:600;font-size:12px;color:var(--cream-dim);text-align:center}
+  .collect b{color:var(--gold);font-weight:700}
+
+  /* ---- Dilemma / Entscheidung ---- */
+  .dilemma-sub{font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:2px;color:var(--gold);font-size:12px;font-weight:700;margin-bottom:10px}
+  .dilemma{font-size:clamp(17px,4.8vw,21px);line-height:1.5;font-weight:600}
+  .options{display:flex;flex-direction:column;gap:9px;margin-top:14px}
+  button.opt{font-family:"Barlow",sans-serif;font-weight:700;font-size:16px;color:var(--cream);
+    padding:12px 14px;border-radius:11px;cursor:pointer;text-align:left;
+    background:rgba(255,255,255,.06);border:1px solid rgba(236,59,156,.35);transition:background .15s,border-color .15s}
+  button.opt:hover{background:rgba(236,59,156,.14);border-color:var(--gold)}
+  button.opt:focus-visible{outline:3px solid var(--cream);outline-offset:2px}
+  button.opt .hint{display:block;font-weight:500;font-size:13px;color:var(--cream-dim);margin-top:2px}
+
+  /* ---- Toast ---- */
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);
+    background:linear-gradient(180deg,#141634,#0a0b1c);border:1px solid var(--good);color:var(--cream);
+    padding:12px 18px;border-radius:12px;font-weight:600;font-size:15px;box-shadow:0 12px 30px rgba(0,0,0,.5);
+    opacity:0;pointer-events:none;z-index:30;transition:opacity .3s,transform .3s;max-width:90vw;text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .over-actions{display:flex;flex-direction:column;gap:9px}
+  .copyhint{font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:1.2px;font-size:12px;color:var(--cream-dim);margin-top:10px;min-height:14px;line-height:1.4}
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="marquee">
+    <div class="bulbs"></div>
+    <h1>Antikörper<br>Simulator</h1>
+    <div class="est">Assemble!</div>
+  </div>
+
+  <div class="dash">
+    <div class="meta">
+      <div><span class="year" id="year">2007</span> <span class="season" id="season">Jahr 1 / 20</span></div>
+      <div class="status" id="status">Unbekannt</div>
+    </div>
+    <div class="kasse-row">
+      <span class="kasse-label">Antikörper-Kasse</span>
+      <span class="kasse-val" id="kasseVal">€250</span>
+    </div>
+    <div class="kasse-warn" id="kasseWarn" hidden>⚠ Kasse niedrig: bei 0 € ist Schluss.</div>
+    <div class="bar-row">
+      <div class="bar-label"><span>Spaß-Level</span><span class="val-spass"><span id="spassVal">50</span>%</span></div>
+      <div class="bar"><div class="fill spass" id="spassBar"></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label"><span>Berüchtigt</span><span class="val-ber"><span id="berVal">10</span>%</span></div>
+      <div class="bar"><div class="fill beruchtigt" id="berBar"></div></div>
+    </div>
+  </div>
+
+  <div class="goal" id="goal">🎯 <span id="goalText">Ziel wird geladen …</span></div>
+  <div class="collect" id="collect"></div>
+
+  <div class="stage" id="stage">
+    <div class="curtain-l"></div><div class="curtain-r"></div>
+    <div class="spotlight"></div>
+    <div class="event-card show" id="card">
+      <p class="idle-text">Es ist 2007. Zwölf Männer, ein Traum, keinerlei Impulskontrolle.<br>Was machen die Antikörper heute?</p>
+    </div>
+  </div>
+
+  <div class="prompt">Entscheide &middot; kassiere die Konsequenz</div>
+  <div class="actions">
+    <button class="act fasching" id="btnFasching" onclick="play('fasching')">🎭 Fasching</button>
+    <button class="act trip" id="btnTrip" onclick="play('trip')">🚐 Städtetrip</button>
+    <button class="act rest" id="btnRest" onclick="play('rest')">😌 Probe &amp; Erholung</button>
+    <button class="act shop" id="btnGimmick" onclick="buyGimmick()">🛍 Gimmick kaufen · 200 €</button>
+  </div>
+
+  <div class="chron">
+    <h2>Chronik</h2>
+    <ul class="log" id="log"><li class="empty">Noch nichts passiert. Noch.</li></ul>
+  </div>
+
+  <div class="footer">
+    <button class="ghost" onclick="retire()">Karriere beenden</button>
+    <button class="ghost" onclick="resetGame()">Neustart</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="over" id="over">
+  <div class="over-box">
+    <h2 id="overTitle">Vorhang</h2>
+    <p id="overText"></p>
+    <div class="stats" id="overStats"></div>
+    <div class="over-actions">
+      <button class="act" style="width:100%" onclick="resetGame()">Neue Karriere starten</button>
+      <button class="act shop" style="width:100%" onclick="saveCard()">📸 Als Bild speichern</button>
+      <button class="ghost" style="width:100%" onclick="copyCard()">Bilanz kopieren</button>
+    </div>
+    <div class="copyhint" id="copyhint"></div>
+  </div>
+</div>
+
+<script>
+const MEMBERS = ["Ben","Jan","JB","Percy","Till","Jakob F","Lamin","Janos","Marcus","Jakob R.","Olli","Alex"];
+const RIVAL   = ["Offenbach","Hanau","Rüsselsheim","Gießen","Groß-Gerau","Bad Vilbel"];
+const ZIELE   = ["Berlin","Hamburg","Köln","Prag","Amsterdam","Wien","München","Mailand","Krakau","Budapest"];
+
+function pick(a){return a[Math.floor(Math.random()*a.length)];}
+function fill(t, ctx){
+  ctx=ctx||{};
+  const roster=(S&&S.roster&&S.roster.length)?S.roster:MEMBERS;
+  const a = ctx.a || pick(roster);
+  let b = pick(roster); let guard=0; while(b===a && guard++<50) b=pick(roster);
+  const ziel = ctx.ziel || pick(ZIELE);
+  return t.replaceAll("{a}",a).replaceAll("{b}",b).replaceAll("{stadt}",pick(RIVAL)).replaceAll("{ziel}",ziel);
+}
+
+// typ: triumph | desaster | chaos | kult   ->  spass, ber = deltas
+const EVENTS = {
+  show:[
+    // Desaster
+    {typ:"desaster",s:-18,b:8, t:"{a} lässt sich von {b} kurz vor dem Auftritt zu einem Wodka-Shot überreden. Auf der Bühne ist der Faden weg, der Showtanz geht komplett zugrunde."},
+    {typ:"desaster",s:-15,b:10,t:"{a} hat das Kostüm aus Hasendraht geschnitten. Mitten in der Choreografie fällt es auf offener Bühne auseinander."},
+    {typ:"desaster",s:-9, b:5, t:"Das Playback von {a} bricht ab. {b} tanzt tapfer in völliger Stille weiter. Fremdscham in Reinform."},
+    {typ:"desaster",s:-7, b:3, t:"{a} vergisst mitten in der Choreo komplett den nächsten Move und friert für alle sichtbar ein."},
+    {typ:"desaster",s:-11,b:6, t:"{a} baut eine Pyro-Einlage ein, die fast den Vorhang anzündet. Der Hausmeister greift ein."},
+    // Chaos
+    {typ:"chaos",   s:-14,b:6, t:"{a} hat den Auftritt ausgerechnet in {stadt} gebucht, wo die Antikörper nicht willkommen sind. Nach 30 Sekunden werden sie von der Bühne gebuht."},
+    {typ:"chaos",   s:-10,b:3, t:"{a} und {b} streiten sich mitten im Auftritt über die richtige Schrittfolge. Das Publikum bekommt jedes Wort mit."},
+    {typ:"chaos",   s:-8, b:4, t:"{a} kommt zu spät auf die Bühne und stolpert direkt über das eigene Kabel."},
+    {typ:"chaos",   s:-8, b:4, t:"{a} verwechselt links und rechts und rennt frontal in {b}. Beide gehen zu Boden."},
+    {typ:"chaos",   s:-6, b:2, t:"Die Musikanlage von {a} ist viel zu leise, die ersten Reihen hören nur nackte Füße auf dem Boden."},
+    // Kult / Eskalation
+    {typ:"kult",    s:12, b:13,t:"{a} filmt die perfekt sitzende Choreo fürs frühe YouTube. Die Antikörper gehen viral."},
+    {typ:"kult",    s:5,  b:13,t:"{a} hat viel zu viele Biermarken verteilt. Der Auftritt eskaliert komplett, an Choreografie denkt niemand mehr."},
+    {typ:"kult",    s:7,  b:8, t:"{a} beißt auf der Bühne einer Tänzerin die Rose vom Stiel ab. Das Publikum weiß nicht, ob es Kunst oder Wahnsinn ist."},
+    {typ:"kult",    s:3,  b:9, t:"{a} klaut auf dem Weg von der Bühne einen Feuerlöscher. Keiner weiß, warum, alle finden es großartig."},
+    {typ:"kult",    s:6,  b:6, t:"{a} reißt sich beim Spagat die Hose. {b} rettet die Situation mit einem Lachanfall am Mikro."},
+    // Triumph
+    {typ:"triumph", s:18, b:6, t:"{a} legt ein Solo hin, das die ganze Halle zum Beben bringt. Standing Ovations."},
+    {typ:"triumph", s:14, b:4, t:"Trotz Chaos reißen {a} und {b} den Auftritt mit einer improvisierten Einlage komplett raus."},
+    {typ:"triumph", s:14, b:5, t:"{a} zieht mit {b} eine perfekte Hebefigur durch, das Publikum rastet aus."},
+    {typ:"triumph", s:12, b:2, t:"{a} bringt die Oma in der ersten Reihe zum Weinen, so schön war der Auftritt."},
+    {typ:"triumph", s:15, b:4, t:"Ein Talentscout im Publikum ist begeistert von {a}. Zwei Wochen lang träumt die ganze Truppe vom Durchbruch."},
+    {typ:"triumph", s:9,  b:1, t:"{a} führt einen sauberen, soliden Auftritt an. Nichts explodiert. Alle sind selbst überrascht."},
+    {typ:"desaster",s:-16,b:8, t:"{a} bekommt die Biermarken schon vor dem Auftritt in die Hand. Entsprechend katastrophal wird die Vorstellung."},
+    {typ:"triumph", s:16, b:7, t:"{a} und {b} rocken einen wilden Bollywood-Tanz. Bei der Zugabe tobt die ganze Halle."},
+    {typ:"desaster",s:-14,b:6, t:"{a} hat die Truppe unter falschem Namen angemeldet. Mitten im Auftritt werden wir enttarnt und ausgebuht."},
+    {typ:"kult",    s:5,  b:8, t:"{a} verheddert sich im Konfettikanon und feuert ihn versehentlich ins Publikum. Ein Kind weint, drei Erwachsene jubeln."},
+    {typ:"kult",    s:8,  b:6, t:"{a} vergisst die komplette Choreo und macht nur noch Grimassen. Das Publikum hält es für Absicht und feiert es."},
+    {typ:"triumph", s:3,  b:5, k:25, t:"{a} zieht bei der Zugabe blank! Das Publikum johlt."},
+    {typ:"desaster",s:-5, b:10,k:-10,t:"{a} schleudert backstage die Sporttaschen durch die Gegend. Eine trifft {b} voll."},
+  ],
+  umzug:[
+    // Signature-Chaos vom Wagen
+    {typ:"kult",    s:8,  b:12,t:"{a} gibt beim Faschingsumzug einen echten, lebenden Hummer vom Wagen in die Menge. Die Straße dreht durch."},
+    {typ:"chaos",   s:-6, b:4, t:"{a} kippt gleich zu Beginn sämtliche Kamelle auf einen Schlag in die Menge. Danach ist der Wagen leer und die restliche Strecke wird zäh."},
+    {typ:"desaster",s:-8, b:6, t:"Auf dem Faschingswagen gibt es keine echte Toilette. {a} improvisiert, {b} will nichts davon mitbekommen haben."},
+    {typ:"desaster",s:-14,b:7, t:"{a} hat den Wagen aufgebaut, aber nichts richtig verschraubt. Auf halber Strecke fällt der Faschingswagen in Einzelteile."},
+    // weiteres Fasching-Chaos
+    {typ:"chaos",   s:-7, b:4, t:"{a} hat den Anhänger falsch angekuppelt. Der halbe Zug muss warten, bis alles wieder hängt."},
+    {typ:"chaos",   s:-5, b:4, t:"{a} steht seit Stunden auf dem Wagen und weiß nicht mehr, wo die Route langgeht. Der Wagen biegt falsch ab."},
+    {typ:"chaos",   s:-4, b:5, t:"{a} wirft die Kamelle mit so viel Wucht, dass sich ein Zuschauer lautstark beschwert."},
+    // Kult / Triumph
+    {typ:"kult",    s:8,  b:3, t:"{a} verkleidet sich so gut, dass die eigene Truppe {a} eine Stunde lang nicht wiedererkennt."},
+    {typ:"triumph", s:13, b:7, t:"{a} und {b} liefern auf dem Wagen eine improvisierte Show ab, die ganze Straße tobt mit."},
+    {typ:"triumph", s:14, b:5, t:"Der Wagen von {a} gewinnt überraschend den Preis für den kreativsten Beitrag des Umzugs."},
+    {typ:"triumph", s:11, b:4, t:"{a} führt die Truppe tanzend die komplette Strecke an, ohne einmal aus dem Takt zu kommen."},
+    {typ:"chaos",   s:-4, b:3, t:"{a} hält auf dem Wagen eine endlose Büttenrede. {b} schläft mitten in der Pointe ein."},
+    {typ:"chaos",   s:-4, b:6, t:"{a} kippt beim Winken fast vom Wagen und kann sich nur im letzten Moment an {b} festklammern."},
+    {typ:"kult",    s:6,  b:7, t:"{a} bewirft aus Versehen den Bürgermeister mit einer Handvoll Kamelle. Der lacht zum Glück lauthals mit."},
+    {typ:"triumph", s:5,  b:4, k:200,t:"{a} hat tatsächlich RedBull als Sponsor für den Wagen gewonnen! Endlos Wodka-E."},
+    {typ:"desaster",s:-10,b:10,k:-30,t:"{a} hat das AltGießen als Sponsor gewonnen, aber {b} hat dort Hausverbot."},
+    {typ:"triumph", s:0,  b:15,k:-15,t:"{a} hat uns beim Weiberfasching reingeschmuggelt. {b} verteilt Sticker. Wir fliegen auf!"},
+    {typ:"chaos",   s:10, b:10,k:0,  t:"{a} hat eine Runde Bier auf Kosten des Elferrats bestellt. Wir bekommen böse Blicke."},
+  ],
+  trip:[
+    // Chaos / Desaster
+    {typ:"chaos",   s:-12,b:5, t:"{a} hat die Unterkunft gebucht: 4 Schlafplätze für 11 Antikörper. Die Nacht wird sehr lang."},
+    {typ:"desaster",s:-20,b:2, t:"Zum Frühstück gibt es nur Marmelade. Jakob ist so schlecht drauf, dass er den kompletten Städtetrip für alle ruiniert."},
+    {typ:"chaos",   s:-9, b:3, t:"{a} verpennt den Zug nach {ziel}, die halbe Truppe wartet drei Stunden am Bahnhof."},
+    {typ:"chaos",   s:-11,b:4, t:"Die gebuchte Unterkunft in {ziel} entpuppt sich als Baustelle. {a} hatte die Bewertungen nicht gelesen."},
+    {typ:"chaos",   s:-6, b:7, t:"{a} und {b} drehen nachts in der Unterkunft auf. Wegen Ruhestörung steht plötzlich die Polizei vor der Tür."},
+    {typ:"chaos",   s:-4, b:7, t:"{a} und {b} leihen in {ziel} ein Tretboot. Mitten auf dem See kentert es, beide schwimmen klatschnass an Land."},
+    {typ:"chaos",   s:-8, b:3, t:"{a} bucht aus Versehen ein Hostel im Nachbarort von {ziel}. Eine Stunde Fußweg zu wirklich allem."},
+    {typ:"chaos",   s:-6, b:2, t:"{a} verliert in {ziel} das Portemonnaie, {b} legt für die ganze Truppe aus."},
+    {typ:"chaos",   s:-6, b:5, t:"{a} diskutiert lautstark mit einem Kellner in {ziel} über die Rechnung. Peinlich für alle."},
+    {typ:"chaos",   s:-5, b:2, t:"{a} verschläft komplett und verpasst den halben Tag in {ziel}."},
+    // Kult
+    {typ:"kult",    s:16, b:14,t:"{a} macht eine spontane Nacht in einer Bar in {ziel} draus, in der die Antikörper zur lokalen Legende werden."},
+    {typ:"kult",    s:-7, b:8, t:"{a} und {b} verlaufen sich nachts in {ziel} und tauchen erst im Morgengrauen wieder auf."},
+    {typ:"kult",    s:13, b:8, t:"Nächtliche Bootstour in {ziel}: {a} bringt alle zum Singen, wildfremde Leute machen mit."},
+    // Triumph
+    {typ:"triumph", s:12, b:6, t:"In {ziel} zieht plötzlich eine Parade vorbei. {a} tanzt spontan mit und reißt die halbe Truppe mit."},
+    {typ:"triumph", s:15, b:1, t:"{a} organisiert ein perfektes Wochenende in {ziel}: alles läuft rund, alle sind happy."},
+    {typ:"triumph", s:11, b:5, t:"{a} stellt die Truppe fürs legendäre Gruppenfoto vor dem Wahrzeichen von {ziel} auf. Dieses Bild hängt später in jeder WG."},
+    {typ:"triumph", s:12, b:2, t:"{a} entdeckt in {ziel} ein Restaurant mit richtig guter vegetarischer Küche. Die Truppe schwärmt noch Jahre davon."},
+    {typ:"triumph", s:11, b:2, t:"{a} organisiert in {ziel} eine spontane Stadtführung, die heimlich alle richtig gut finden."},
+    {typ:"kult",    s:3,  b:6, t:"{a} verschwindet in {ziel} hinter einem Wahlplakat und vergnügt sich dort. Der Rest tut, als hätte niemand etwas gesehen."},
+    {typ:"desaster",s:-10,b:5, k:-40,t:"{a} tritt in {ziel} aus Versehen die Tür des Vermieters ein. Die Kaution ist futsch."},
+    {typ:"chaos",   s:-3, b:1, t:"{a} will in {ziel} unbedingt ins Hard Rock Café, egal wie weit weg. {b} ist maximal genervt."},
+    {typ:"desaster",s:-10,b:2, k:-20,t:"{a} sucht in {ziel} ein Schnitzelrestaurant aus. {b} holt sich prompt eine Lebensmittelvergiftung."},
+    {typ:"kult",    s:4,  b:7, t:"Der Aperol in {ziel} dauert zu lange. {a} wird ungeduldig, geht kurzerhand hinter die Bar und zapft selbst."},
+    {typ:"kult",    s:3,  b:4, t:"{a} hat in {ziel} eine Kirsche gefunden. {b} bekommt Panik. Niemand will je wieder darüber reden."},
+    {typ:"chaos",   s:-6, b:2, t:"{a} bucht in {ziel} ein Zimmer mit Meerblick, das sich als Blick auf einen Parkplatz entpuppt."},
+    {typ:"kult",    s:7,  b:6, t:"{a} verliert in {ziel} eine Wette und muss den ganzen Abend im Kostüm herumlaufen."},
+    {typ:"chaos",   s:-7, b:2, t:"{a} besteht darauf, {ziel} komplett zu Fuß zu erkunden. Nach 18 Kilometern meutert die halbe Truppe."},
+    {typ:"kult",    s:8,  b:3, k:-15,t:"{a} findet in {ziel} einen Flohmarkt und kauft eine kaputte Discokugel, die keiner braucht, aber alle lieben."},
+  ],
+  rest:[
+    {typ:"triumph", s:10, b:-3, t:"{a} sorgt für ein ruhiges Wochenende, alle laden die Akkus wieder auf."},
+    {typ:"triumph", s:8,  b:0,  t:"{a} bringt zur Probe eine neue Choreo mit. Sitzt erstaunlich schnell."},
+    {typ:"triumph", s:12, b:-2, t:"{a} kocht groß auf, vegetarisch versteht sich. Es wird der beste Abend seit Monaten."},
+    {typ:"triumph", s:10, b:-2, t:"{a} und {b} versöhnen sich nach altem Streit. Die Stimmung ist wie neu."},
+    {typ:"triumph", s:9,  b:0,  t:"{a} bringt eine neue Playlist mit, plötzlich haben alle Bock auf die nächste Choreo."},
+    {typ:"chaos",   s:-3, b:4,  t:"{a} feiert das ruhige Wochenende etwas zu laut. Die Nachbarn rufen wegen Ruhestörung an."},
+    {typ:"chaos",   s:-4, b:1,  t:"Die Probe zieht sich ewig. {a} und {b} sind gelangweilt und zoffen sich ein bisschen."},
+    {typ:"chaos",   s:-6, b:2,  t:"Die halbe Truppe erscheint gar nicht erst zur Probe. {a} ist not amused."},
+    {typ:"chaos",   s:-3, b:0,  t:"{a} schläft auf der Couch ein, keiner traut sich, die Probe zu starten."},
+    {typ:"chaos",   s:-5, b:2,  t:"Statt zu trainieren spielen alle Becks Xtreme. {a} schummelt und bezeichnet {b} lautstark als Lügengesicht."},
+    {typ:"chaos",   s:2,  b:0, k:-60,t:"{a} wird neuer Kassenwart. Keine gute Idee: die halbe Antikörper-Kasse geht für Süßigkeiten drauf."},
+    {typ:"chaos",   s:-5, b:1,  t:"{a} schlägt eine V-Formation vor, {b} besteht auf einem umgedrehten A. Nach einer Stunde Grundsatzdebatte sind alle genervt."},
+    {typ:"desaster",s:-8, b:0,  t:"{a} hat Geburtstag, {b} hat es komplett vergessen. Die Stimmung ist im Keller."},
+    {typ:"triumph", s:11, b:0, k:-10,t:"{a} bringt selbstgebackene, vegetarische Muffins mit. Plötzlich läuft die Probe wie geschmiert."},
+    {typ:"kult",    s:6,  b:8,  t:"{a} filmt heimlich alle beim Warmmachen und schneidet ein peinliches Best-of. Es wird trotzdem gefeiert."},
+    {typ:"chaos",   s:3,  b:5,  t:"{a} hat ein neues Spiel erfunden: Säckeln. {b} verliert haushoch."},
+    {typ:"triumph", s:10, b:5, k:100,t:"{a} bringt Maik dazu, sein Schweigen zu brechen. Gratislava, wir kommen!"},
+  ]
+};
+
+// Städtetrip: fester Organisator -> fester Ort (dest = Anzeige, ziel = grammatische Einsetzung)
+const ORGA=[
+  {who:"JB",       dest:"Oberhausen",       ziel:"Oberhausen"},
+  {who:"Marcus",   dest:"Prag",             ziel:"Prag"},
+  {who:"Till",     dest:"Ibiza",            ziel:"Ibiza"},
+  {who:"Ben",      dest:"Titisee / Freiburg",ziel:"Titisee/Freiburg"},
+  {who:"Jan",      dest:"Winterberg",       ziel:"Winterberg"},
+  {who:"Janos",    dest:"Málaga",           ziel:"Málaga"},
+  {who:"Percy",    dest:"Utrecht",          ziel:"Utrecht"},
+  {who:"Jakob R.", dest:"Schweden",         ziel:"Schweden"},
+  {who:"Alex",     dest:"Fusion-Festival",  ziel:"aufs Fusion-Festival"},
+  {who:"Olli",     dest:"Heidelberg",       ziel:"Heidelberg"},
+  {who:"Jakob F.", dest:"Geheimer Ort",     ziel:"einem geheimen Ort"},
+];
+// Sonderjubiläum, wenn alle Orte besucht wurden
+const JUBI_EVENT={typ:"triumph", s:20, b:20, k:400, t:"{a} macht es offiziell: Die Antikörper haben alle elf Reiseorte ihrer Geschichte abgeklappert. Ein legendäres Jubiläums-Wochenende krönt die komplette Sammlung."};
+
+// Gimmicks: jederzeit für 200 € kaufbar, zufällig bestimmt. Alle sammeln = Ziel.
+const GIMMICKS=["Collage-Jacken","Jeansweste","GoPro","AK-Flagge","Antikörper-Tattoo","Antikörper-Tretboot"];
+
+let S; // state
+function fresh(){return {jahr:2007, spass:50, ber:10, kasse:250, shows:0, fasching:0, trips:0, log:[], over:false, achieved:[], visited:[], jubilaeum:false, gimmicks:[], roster:MEMBERS.slice(), left:[], endReason:null, booze:0, desaster:0, topMoment:{text:null,jahr:null,score:-1}};}
+
+function rand(min,max){return Math.floor(Math.random()*(max-min+1))+min;}
+// Grund-Ökonomie pro Aktion: Auftritte bringen Gage, Trips kosten.
+function baseGage(kind){
+  if(kind==="show")return rand(50,130);
+  if(kind==="umzug")return rand(-30,25);
+  if(kind==="trip")return -rand(60,140);
+  return -rand(0,10);
+}
+
+// Feature 7: seltene Jackpot- und Katastrophen-Events (große Ausschläge)
+const RARE=[
+  {typ:"triumph", s:20, b:25, k:300, t:"Ein Musikvideo-Team entdeckt {a} auf einer Hochzeit. Über Nacht sind die Antikörper stadtbekannt."},
+  {typ:"triumph", s:18, b:18, k:400, t:"{a} führt die Truppe zum Sieg bei einem regionalen Talentwettbewerb. Preisgeld und Presse inklusive."},
+  {typ:"triumph", s:10, b:12, k:500, t:"Ein lokaler Sponsor verliebt sich in die Show von {a} und zahlt eine fette Jahresgage."},
+  {typ:"kult",    s:6,  b:22, k:120, t:"Ein Clip von {a} landet zufällig im Fernsehen. Plötzlich kennt die halbe Region die Antikörper."},
+  {typ:"desaster",s:-22,b:18, k:-100,t:"{a} lädt aus Versehen das interne Chaos-Video hoch. Ein handfester Shitstorm bricht los."},
+  {typ:"desaster",s:-12,b:5,  k:-350,t:"Bei einem Auftritt von {a} geht die geliehene Technik komplett zu Bruch. Die Rechnung ist gewaltig."},
+  {typ:"desaster",s:-18,b:10, k:-90, t:"{a} bucht die Truppe doppelt und blamiert alle vor zwei Veranstaltern gleichzeitig."},
+];
+
+// Feature 1: echte Entscheidungen vor manchen Aktionen
+const DILEMMAS={
+  show:[
+    {q:"Kurz vor dem Auftritt hält dir {a} einen Wodka-Shot hin.",options:[
+      {label:"Annehmen",hint:"Riskant, aber legendär",typ:"kult",   s:-10,b:14,k:0,  t:"{a} und du kippt den Shot. Der Auftritt wird ein einziges Chaos, aber die Leute reden wochenlang drüber."},
+      {label:"Ablehnen",hint:"Sicher, aber brav",     typ:"triumph",s:8, b:0, k:0,  t:"{a} zuckt mit den Schultern, ihr bleibt nüchtern und tanzt sauber durch."}]},
+    {q:"{a} will spontan eine Pyro-Einlage in die Choreo bauen.",options:[
+      {label:"Machen lassen",hint:"Große Show, großes Risiko",typ:"kult",   s:6,b:12,k:-40,t:"Die Funken von {a} fliegen, das Publikum jubelt. Ein Vorhang sengt an, die Reinigung kostet."},
+      {label:"Verbieten",   hint:"Kein Feuer, kein Ärger",   typ:"triumph",s:5,b:1, k:0,  t:"{a} ist kurz beleidigt, aber der Auftritt läuft ruhig und sauber."}]},
+    {q:"Das Publikum ruft nach einer Zugabe, aber die Truppe ist völlig platt.",options:[
+      {label:"Zugabe geben",hint:"Alles raushauen",typ:"triumph",s:12,b:6,k:40,t:"{a} reißt sich zusammen und liefert. Die Halle tobt, es gibt sogar Trinkgeld."},
+      {label:"Abgehen",     hint:"Kräfte schonen",  typ:"chaos",  s:-4,b:2,k:0, t:"{a} winkt ab und geht. Ein paar Buhrufe, aber die Beine danken es euch."}]}
+  ],
+  umzug:[
+    {q:"{a} fragt, ob ihr den Wagen selbst zusammenschraubt oder einen Profi zahlt.",options:[
+      {label:"Selber bauen",hint:"Spart Geld, wackelt",   typ:"chaos",  s:-6,b:6,k:60, t:"{a} schraubt drauflos. Der Wagen hält, aber quietscht bedenklich über die ganze Strecke."},
+      {label:"Profi zahlen",hint:"Teuer, aber stabil",    typ:"triumph",s:6, b:2,k:-90,t:"Der Wagen von {a} ist top gebaut und übersteht den Umzug ohne einen Kratzer."}]},
+    {q:"{a} will teure Marken-Bonbons kaufen statt der billigen.",options:[
+      {label:"Edel dosieren",  hint:"Kostet, kommt an",   typ:"triumph",s:9, b:3,k:-70,t:"Die guten Bonbons von {a} sind der Hit am Straßenrand. Die Kinder lieben euch."},
+      {label:"Billig & viel",  hint:"Günstig, chaotisch",  typ:"chaos",  s:-3,b:4,k:20, t:"{a} kippt Massen billiger Kamelle raus. Nach der Hälfte ist alles weg."}]},
+    {q:"{a}, du bist an der Playlist. Was läuft am Marktplatz?",options:[
+      {label:"Asozialer Lifestyle",hint:"Stimmung kocht",typ:"kult",  s:8, b:9, k:0,t:"Mit Asozialer Lifestyle bringt {a} den ganzen Marktplatz zum Kochen."},
+      {label:"Wind of Change",     hint:"Brav, langweilig",typ:"chaos", s:-4,b:0, k:0,t:"{a} legt Wind of Change auf. Ein paar Ältere pfeifen mit, der Rest gähnt."}]},
+    {q:"Wagenabbau: {a} will die große Tonne runterreichen!",options:[
+      {label:"Langsam und bedacht",hint:"Sicher, unspektakulär",typ:"triumph", s:4, b:1,k:0,t:"{a} lässt die Tonne vorsichtig herab. Unspektakulär, aber alle Finger bleiben dran."},
+      {label:"Schnell runter!",    hint:"Riskant",             typ:"desaster",s:-8,b:8,k:0,leave:true,t:"{a} reißt die Tonne viel zu schnell herunter und schüttet sich den kompletten Inhalt über den Kopf."}]}
+  ],
+  trip:[
+    {q:"{a} zeigt zwei Unterkünfte in {ziel}: billig und sketchy oder teuer und sicher.",options:[
+      {label:"Billig nehmen", hint:"Spart Kasse, riskant",typ:"chaos",  s:-8,b:6,k:70, t:"Die günstige Bude von {a} entpuppt sich als Abenteuer. Geschlafen hat kaum jemand."},
+      {label:"Teuer & sicher",hint:"Kostet, aber ruhig",  typ:"triumph",s:8, b:1,k:-80,t:"Alle haben ein Bett, alle sind ausgeschlafen. {a} wird kurz gefeiert."}]},
+    {q:"{a} entdeckt einen Tretbootverleih am See.",options:[
+      {label:"Aufs Boot",     hint:"Kann nass enden",typ:"kult",   s:6,b:7,k:-20,t:"Mitten auf dem See kentert das Boot von {a}. Nass, aber urkomisch."},
+      {label:"Lieber Eis essen",hint:"Trocken bleiben",typ:"triumph",s:9,b:1,k:-15,t:"{a} führt alle zur besten Eisdiele der Stadt. Perfekter Nachmittag."}]},
+    {q:"Es ist 2 Uhr nachts in {ziel}, {a} will noch weiterziehen.",options:[
+      {label:"Durchmachen",hint:"Berüchtigt, aber platt",typ:"kult",   s:4,b:10,k:-30,t:"{a} führt die Truppe durch die Nacht. Am Morgen ist keiner zu gebrauchen."},
+      {label:"Ins Bett",   hint:"Vernünftig",            typ:"triumph",s:7,b:0, k:0,  t:"{a} schickt alle schlafen. Am nächsten Tag ist die Truppe frisch und happy."}]},
+    {q:"{a} organisiert beim Event eine Mountainbike-Tour. Wie geht ihr es an?",options:[
+      {label:"Vollgas mit E-Bikes",hint:"Schnell, riskant",typ:"chaos",s:-6,b:6,k:-40,t:"{a} gibt Vollgas, bis der Motor qualmend durchdreht und mitten im Wald den Geist aufgibt."},
+      {label:"Alte Leihräder",    hint:"Günstig, wackelig",typ:"chaos",s:-5,b:4,k:0,  t:"Kaum bergab platzt {a} der Reifen. Der Rest der Tour wird geschoben."}]},
+    {q:"{a} steht am Steuer des Miet-Boots. Riskante Fahrmanöver?",options:[
+      {label:"Vollgas & Kurven",hint:"Wild, teuer",   typ:"kult",   s:5,b:8,k:-50,t:"{a} zieht wilde Manöver, bis das Lenkseil reißt. Das Boot treibt führerlos über den See."},
+      {label:"Brav tuckern",   hint:"Sicher, langweilig",typ:"triumph",s:6,b:0,k:0, t:"{a} tuckert vorsichtig über den See. Langweilig, aber alle bleiben trocken."}]},
+    {q:"Der Vermieter erklärt {a} umständlich das ganze Haus. Hören wir zu?",options:[
+      {label:"Zuhören",hint:"Zäh, aber sicher",typ:"triumph",s:3,b:0,k:20, t:"{a} hört geduldig zu. Zäh, aber am Ende gibt es sogar die Kaution zurück."},
+      {label:"Weghören",hint:"Riskant",        typ:"chaos",  s:-5,b:3,k:0, t:"{a} nickt nur und hört weg. Später weiß keiner, wie irgendetwas funktioniert, das Chaos ist programmiert."}]}
+  ],
+  rest:[
+    {q:"{a} schlägt eine harte Extra-Probe vor.",options:[
+      {label:"Durchziehen",hint:"Anstrengend, lohnt sich",typ:"triumph",s:-4,b:0,k:0,  t:"{a} treibt alle an. Es nervt, aber die Choreo sitzt danach bombenfest."},
+      {label:"Grillabend", hint:"Spaß statt Drill",       typ:"triumph",s:11,b:0,k:-25,t:"{a} wirft den Grill an, vegetarisch versteht sich. Bester Abend seit Langem."}]}
+  ]
+};
+
+// Feature 6: Ziele pro Ära (mit kleinen Belohnungen)
+const MILESTONES=[
+  {label:"Erster Applaus: Spaß auf 70",        done:s=>s.spass>=70,  reward:{k:50}, msg:"Erster echter Applaus. +50 € Trinkgeld."},
+  {label:"Lokal bekannt: Berüchtigt auf 30",   done:s=>s.ber>=30,    reward:{k:50}, msg:"Die Stadt kennt euch jetzt. +50 €."},
+  {label:"Volle Kasse: 400 € in der Antikörper-Kasse",done:s=>s.kasse>=400,reward:{s:5}, msg:"Die Kasse ist voll. +5 Spaß."},
+  {label:"Stadtgespräch: Berüchtigt auf 60",   done:s=>s.ber>=60,    reward:{k:80}, msg:"Ihr seid Stadtgespräch. +80 €."},
+  {label:"Voll ausgestattet: alle 6 Gimmicks", done:s=>s.gimmicks.length>=GIMMICKS.length, reward:{k:100}, msg:"Alle Gimmicks gesammelt. +100 €."},
+  {label:"Durchhalten: erreiche das Jahr 2012",done:s=>s.jahr>=2012, reward:{k:100}, msg:"Fünf Jahre Antikörper. +100 €."},
+  {label:"Legende: Berüchtigt 85 und Spaß 60", done:s=>s.ber>=85&&s.spass>=60, reward:{s:5,k:150}, msg:"Legendenstatus erreicht. Ihr seid Kult."}
+];
+
+function berStatus(b){
+  if(b>=86)return"Kult-Phänomen";
+  if(b>=61)return"Stadtgespräch";
+  if(b>=36)return"Berüchtigt";
+  if(b>=16)return"Stadtbekannt";
+  return"Unbekannt";
+}
+function clamp(x){return Math.max(0,Math.min(100,x));}
+
+function render(){
+  document.getElementById("year").textContent=S.jahr;
+  const runde=Math.min(S.jahr-2006,20);
+  document.getElementById("season").textContent="Jahr "+runde+" / 20";
+  document.getElementById("status").textContent=berStatus(S.ber);
+  document.getElementById("spassVal").textContent=Math.round(S.spass);
+  document.getElementById("berVal").textContent=Math.round(S.ber);
+  document.getElementById("spassBar").style.width=S.spass+"%";
+  document.getElementById("berBar").style.width=S.ber+"%";
+
+  const k=Math.round(S.kasse);
+  const kv=document.getElementById("kasseVal");
+  kv.textContent=(k<0?"−€"+Math.abs(k):"€"+k);
+  kv.className="kasse-val"+(k<100?" low":"");
+  document.getElementById("kasseWarn").hidden = !(k<100 && k>0);
+
+  const g=document.getElementById("goal"), gt=document.getElementById("goalText");
+  const next=MILESTONES.find(m=>!S.achieved.includes(m.label));
+  if(!next){g.classList.add("done");gt.textContent="Alle Ziele erreicht: Legendenstatus.";}
+  else{g.classList.remove("done");gt.textContent="Ziel: "+next.label;}
+
+  const orte=S.visited.length, gim=S.gimmicks.length;
+  document.getElementById("collect").innerHTML=
+    `Orte <b>${orte}/${ORGA.length}</b>`+
+    `<span>Gimmicks <b>${gim}/${GIMMICKS.length}</b></span>`+
+    `<span>Ziele <b>${S.achieved.length}/${MILESTONES.length}</b></span>`+
+    (S.roster.length<MEMBERS.length?`<span>Besetzung <b>${S.roster.length}/${MEMBERS.length}</b></span>`:"");
+
+  // Städtetrip-Feld ausgrauen, wenn alle Orte erledigt sind
+  const trip=document.getElementById("btnTrip");
+  const alleOrte=orte>=ORGA.length;
+  trip.disabled=S.over||alleOrte;
+  trip.textContent=alleOrte?"🚐 Städtetrip · alle Orte ✓":"🚐 Städtetrip";
+  // Gimmick-Feld: nur kaufbar mit genug Kasse und solange nicht alle gesammelt
+  const gb=document.getElementById("btnGimmick");
+  const alleGim=gim>=GIMMICKS.length;
+  gb.disabled=S.over||alleGim||S.kasse<200;
+  gb.textContent=alleGim?"🛍 Alle Gimmicks gesammelt ✓":"🛍 Gimmick kaufen · 200 €";
+
+  const log=document.getElementById("log");
+  if(S.log.length===0){log.innerHTML='<li class="empty">Noch nichts passiert. Noch.</li>';}
+  else{log.innerHTML=S.log.map(e=>`<li><b>${e.jahr}:</b> ${e.text}</li>`).join("");}
+}
+
+function weightedPick(pool){
+  // Berüchtigt hoch -> mehr Chaos/Desaster. Spaß sehr niedrig -> kleine Gnade Richtung Triumph.
+  const w=pool.map(e=>{
+    let x=1;
+    if(S.ber>60 && (e.typ==="desaster"||e.typ==="chaos"))x*=1.7;
+    if(S.spass<25 && e.typ==="triumph")x*=1.6;
+    return x;
+  });
+  const sum=w.reduce((a,c)=>a+c,0);
+  let r=Math.random()*sum;
+  for(let i=0;i<pool.length;i++){r-=w[i];if(r<=0)return pool[i];}
+  return pool[pool.length-1];
+}
+
+let busy=false;
+let pendingDilemma=null;
+let pendingOrga=null;
+
+function play(kind){
+  if(busy||S.over)return;
+  busy=true;
+  // "Fasching" bündelt Bühnen-Auftritt und Faschingswagen
+  if(kind==="fasching"){ return routeAction(Math.random()<0.5?"show":"umzug"); }
+  // Städtetrip: immer zuerst die Organisator-Abfrage
+  if(kind==="trip"){ return askOrganizer(); }
+  routeAction(kind); // rest
+}
+
+function routeAction(kind){
+  if(Math.random()<0.07) return resolveOutcome(kind, RARE[Math.floor(Math.random()*RARE.length)], true);
+  if(Math.random()<0.35 && DILEMMAS[kind] && DILEMMAS[kind].length)
+    return showDilemma(kind, DILEMMAS[kind][Math.floor(Math.random()*DILEMMAS[kind].length)]);
+  resolveOutcome(kind, weightedPick(EVENTS[kind]), false);
+}
+
+// Gimmicks jederzeit kaufen (kostet 200 €, zufällig bestimmt, keine Jahresrunde)
+function buyGimmick(){
+  if(S.over||busy||pendingDilemma||pendingOrga)return;
+  if(S.gimmicks.length>=GIMMICKS.length||S.kasse<200)return;
+  const rest=GIMMICKS.filter(x=>!S.gimmicks.includes(x));
+  const g=rest[Math.floor(Math.random()*rest.length)];
+  S.gimmicks.push(g);
+  S.kasse-=200;
+  S.ber=clamp(S.ber+4);
+  toast("🛍 Neues Gimmick: "+g+"  (−200 €)");
+  render();
+  checkMilestones();
+}
+
+// ---- Städtetrip: Wer organisiert? ----
+function askOrganizer(){
+  const rest=ORGA.filter(o=>!S.visited.includes(o.dest));
+  let a,b;
+  if(rest.length>=2){ a=pick(rest); b=pick(rest.filter(o=>o!==a)); }
+  else if(rest.length===1){ a=rest[0]; b=pick(ORGA.filter(o=>o!==a)); }
+  else { a=pick(ORGA); b=pick(ORGA.filter(o=>o!==a)); }
+  const stage=document.getElementById("stage"), card=document.getElementById("card");
+  card.classList.remove("show"); stage.classList.remove("lit");
+  setTimeout(()=>{
+    const opt=(o,i)=>`<button class="opt" onclick="chooseOrganizer(${i})">${o.who} organisiert<span class="hint">Ziel: ${o.dest}</span></button>`;
+    card.innerHTML=`<div class="dilemma-sub">Städtetrip</div>
+      <p class="dilemma">Wer organisiert das Wochenende?</p>
+      <div class="options">${opt(a,0)}${opt(b,1)}</div>`;
+    stage.classList.add("lit"); card.classList.add("show");
+    pendingOrga=[a,b];
+    setActionsDisabled(true);
+    busy=false;
+  },260);
+}
+
+function chooseOrganizer(i){
+  if(!pendingOrga)return;
+  const o=pendingOrga[i];
+  pendingOrga=null;
+  setActionsDisabled(false);
+  busy=true;
+  if(!S.visited.includes(o.dest)) S.visited.push(o.dest);
+  const ctx={a:o.who, ziel:o.ziel};
+  // Alle Orte gesammelt? -> Sonderjubiläum
+  if(S.visited.length>=ORGA.length && !S.jubilaeum){
+    S.jubilaeum=true;
+    return resolveOutcome("trip", JUBI_EVENT, true, ctx);
+  }
+  // sonst: seltenes Event, Entscheidung oder normales Trip-Event, immer am gewählten Ort
+  if(Math.random()<0.07) return resolveOutcome("trip", RARE[Math.floor(Math.random()*RARE.length)], true, ctx);
+  if(Math.random()<0.30) return showDilemma("trip", DILEMMAS.trip[Math.floor(Math.random()*DILEMMAS.trip.length)], ctx);
+  resolveOutcome("trip", weightedPick(EVENTS.trip), false, ctx);
+}
+
+function countKind(kind){
+  if(kind==="show")S.shows++; else if(kind==="umzug")S.fasching++; else if(kind==="trip")S.trips++;
+}
+
+function chip(label,val,ice){
+  const cls=val>=0?(ice?"ice":"pos"):"neg";
+  return `<span class="chip ${cls}">${label} ${val>=0?'+':''}${val}</span>`;
+}
+function chipMoney(val){
+  const txt=val>=0?("+€"+val):("−€"+Math.abs(val));
+  return `<span class="chip ${val>=0?'pos':'neg'}">Kasse ${txt}</span>`;
+}
+
+function resolveOutcome(kind, ev, rare, ctx){
+  countKind(kind);
+  const text=fill(ev.t, ctx);
+  // Tracking für Abzeichen und Top-Moment
+  if(/wodka|bier|aperol|becks|wein|shot/i.test(text)) S.booze++;
+  if(ev.typ==="desaster") S.desaster++;
+  let spec=Math.abs(ev.s)+Math.abs(ev.b)+Math.abs(ev.k||0)/12;
+  if(rare) spec+=100;
+  if(ev.leave) spec+=90;
+  if(spec>S.topMoment.score) S.topMoment={text, jahr:S.jahr, score:spec};
+  const money=baseGage(kind)+(ev.k||0);
+  S.spass=clamp(S.spass+ev.s);
+  S.ber  =clamp(S.ber+ev.b);
+  S.kasse+=money;
+  // Austritt: erzwungen (leave-Flag) oder Soft-Fail bei mieser Stimmung
+  let quitMsg=null;
+  if(ev.leave && ctx && ctx.a && S.roster.includes(ctx.a) && S.roster.length>2){
+    S.roster=S.roster.filter(m=>m!==ctx.a);
+    S.left.push(ctx.a);
+    quitMsg=ctx.a+" verlässt nach der Tonnen-Aktion die Antikörper.";
+  }else if(ev.s<0 && S.spass<22 && S.roster.length>6 && Math.random()<0.32){
+    const gone=S.roster[Math.floor(Math.random()*S.roster.length)];
+    S.roster=S.roster.filter(m=>m!==gone);
+    S.left.push(gone);
+    quitMsg=gone+" verlässt entnervt die Antikörper.";
+  }
+  S.log.unshift({jahr:S.jahr, text});
+  if(S.log.length>40)S.log.pop();
+  S.jahr+=1; // jede Runde = ein Jahr
+
+  const stage=document.getElementById("stage");
+  const card=document.getElementById("card");
+  card.classList.remove("show");
+  stage.classList.remove("lit");
+  setTimeout(()=>{
+    card.innerHTML=`<span class="tag ${ev.typ}">${rare?"★ "+ev.typ:ev.typ}</span>
+      <p class="event-text">${text}</p>
+      <div class="deltas">${chip("Spaß",ev.s)}${chip("Berüchtigt",ev.b,true)}${chipMoney(money)}</div>`;
+    stage.classList.add("lit");
+    card.classList.add("show");
+    render();
+    if(quitMsg){ toast("🚪 "+quitMsg); S.log.unshift({jahr:S.jahr-1, text:"🚪 "+quitMsg}); }
+    checkMilestones();
+    const ended=determineEnd();
+    if(ended){
+      // Endbildschirm erst nach dem letzten Event: Button einblenden
+      setActionsDisabled(true);
+      card.innerHTML+=`<button class="finish" onclick="showOver()">Zur Karriere-Bilanz →</button>`;
+    }
+    busy=false;
+  },260);
+}
+
+function showDilemma(kind, d, ctx){
+  // Person für die ganze Entscheidung festlegen, damit Frage und Ausgang dieselbe Person nennen
+  const ec = ctx || {a: pick(S.roster)};
+  const q=fill(d.q, ec);
+  const stage=document.getElementById("stage");
+  const card=document.getElementById("card");
+  card.classList.remove("show");
+  stage.classList.remove("lit");
+  setTimeout(()=>{
+    const opts=d.options.map((o,i)=>
+      `<button class="opt" onclick="chooseOption('${kind}',${i})">${o.label}<span class="hint">${o.hint}</span></button>`).join("");
+    card.innerHTML=`<div class="dilemma-sub">Entscheidung</div>
+      <p class="dilemma">${q}</p>
+      <div class="options">${opts}</div>`;
+    stage.classList.add("lit");
+    card.classList.add("show");
+    pendingDilemma={kind, options:d.options, ctx:ec};
+    setActionsDisabled(true); // erst nach der Wahl geht es weiter
+    busy=false;
+  },260);
+}
+
+function chooseOption(kind, i){
+  if(!pendingDilemma)return;
+  const o=pendingDilemma.options[i];
+  const ctx=pendingDilemma.ctx;
+  pendingDilemma=null;
+  setActionsDisabled(false);
+  busy=true;
+  resolveOutcome(kind, o, false, ctx);
+}
+
+function setActionsDisabled(v){
+  ["btnFasching","btnTrip","btnRest","btnGimmick"].forEach(id=>{document.getElementById(id).disabled=v;});
+}
+
+function checkMilestones(){
+  MILESTONES.forEach(m=>{
+    if(!S.achieved.includes(m.label) && m.done(S)){
+      if(m.reward.k)S.kasse+=m.reward.k;
+      if(m.reward.s)S.spass=clamp(S.spass+m.reward.s);
+      S.achieved.push(m.label);
+      toast("🎯 Ziel erreicht: "+m.msg);
+    }
+  });
+  render();
+}
+
+let toastTimer=null;
+function toast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove("show"),2800);
+}
+
+function determineEnd(){
+  if(S.roster.length<=6){ S.over=true; S.endReason="zerfallen"; return true; }
+  if(S.spass<=0){ S.over=true; S.endReason="streit"; return true; }
+  if(S.kasse<=0){ S.over=true; S.endReason="pleite"; return true; }
+  if(S.jahr>=2027){ S.over=true; S.endReason="finale"; return true; }
+  return false;
+}
+
+function retire(){
+  if(S.over)return;
+  S.over=true; S.endReason="retire";
+  showOver();
+}
+
+function computeScore(){
+  return Math.max(0, Math.round(S.spass)+Math.round(S.ber)
+    + S.visited.length*20 + S.gimmicks.length*25 + S.achieved.length*30
+    + Math.floor(S.kasse/20));
+}
+
+// Completion in Prozent (100% verlangt bewusst alles)
+function completion(){
+  const f = 15*(S.spass/100) + 15*(S.ber/100) + 20*(S.visited.length/ORGA.length)
+    + 15*(S.gimmicks.length/GIMMICKS.length) + 20*(S.achieved.length/MILESTONES.length)
+    + 10*(Math.min(S.kasse,2000)/2000) + 5*(S.roster.length/MEMBERS.length);
+  return Math.max(0, Math.min(100, Math.round(f)));
+}
+
+// Verdiente Abzeichen: Meilenstein (m, pink) + Charakter (c, cyan)
+function getBadges(){
+  const B=[];
+  const add=(icon,label,kind)=>B.push({icon,label,kind});
+  // Meilenstein / ehrend
+  if(S.ber>=85 && S.spass>=60) add("🏆","Kult-Legende","m");
+  if(S.visited.length>=ORGA.length) add("🗺️","Alle 11 Orte","m");
+  if(S.gimmicks.length>=GIMMICKS.length) add("🎽","Voll ausgestattet","m");
+  if(S.achieved.length>=MILESTONES.length) add("✅","Alle Ziele","m");
+  if(S.jahr>=2027) add("🎉","20 Jahre überlebt","m");
+  if(S.kasse>=1500) add("💰","Steinreich","m");
+  // Charakter / frech
+  if(S.booze>=3) add("🍸","Der Wodka-Run","c");
+  if(S.trips>(S.shows+S.fasching)) add("🚐","Reisegruppe","c");
+  if(S.desaster>=5) add("🌪️","Chaostruppe","c");
+  if(S.ber>=95) add("💥","Skandalnudeln","c");
+  if(S.spass>=70 && S.ber<40) add("🧸","Familienfreundlich","c");
+  if(S.left.length>=3) add("🚪","Die Zerfallenen","c");
+  if(!B.length) add("🫥","Unbeschriebenes Blatt","c");
+  // Mischen: bis zu 4 Meilenstein + bis zu 2 Charakter, für individuellere Karten
+  const ms=B.filter(b=>b.kind==="m"), cs=B.filter(b=>b.kind==="c");
+  let out=ms.slice(0,4).concat(cs.slice(0,2));
+  if(out.length<6) out=out.concat(ms.slice(4), cs.slice(2)).slice(0,6);
+  return out;
+}
+
+function getTopMoment(){
+  if(!S.topMoment.text) return null;
+  return {text:S.topMoment.text.replace(/\s+/g," ").trim(), jahr:S.topMoment.jahr};
+}
+
+// Mehrere Enden: Titel + Text variieren nach Höhe der Balken (plus Modifikatoren)
+function endingFor(){
+  const s=Math.round(S.spass), b=Math.round(S.ber), r=S.endReason;
+  if(r==="streit")    return {title:"Im Streit zerbrochen", text:"Das Spaß-Level fiel auf null. Nach einem letzten großen Krach lösen sich die Antikörper auf. Jakob war's wahrscheinlich."};
+  if(r==="pleite")    return {title:"Pleite und paniert", text:"Die Antikörper-Kasse ist leer. Ohne Geld für Kostüme, Sprit und Bühne ist mitten in einer eigentlich vielversprechenden Karriere Schluss."};
+  if(r==="zerfallen") return {title:"Von zwölf auf sechs", text:"Einer nach dem anderen ist gegangen. Was von den Antikörpern übrig ist, reicht nicht mehr für eine Choreo. Die Truppe zerfällt."};
+  // Finale (2027) oder freiwilliges Beenden: variabel nach Spaß und Berüchtigt
+  const hiS=s>=65, hiB=b>=65, loS=s<40, loB=b<40;
+  let e;
+  if(hiS&&hiB)       e={title:"Kult-Legenden", text:"Zwanzig Jahre, und die Antikörper sind das, wovon andere Truppen träumen: berüchtigt, geliebt und immer noch mit einem Grinsen auf der Bühne."};
+  else if(hiB&&loS)  e={title:"Berüchtigt und ausgebrannt", text:"Alle kennen die Antikörper, keiner will mehr mit. Der Ruf ist gewaltig, die Stimmung im Bus schon lange nicht mehr. Legendär, aber müde."};
+  else if(hiS&&loB)  e={title:"Der glücklichste Geheimtipp", text:"Kaum jemand außerhalb der eigenen Stadt kennt die Antikörper, aber niemand hatte je so viel Spaß miteinander. Manchmal ist genau das der Sieg."};
+  else if(loS&&loB)  e={title:"Leise verglüht", text:"Kein großer Knall, kein großer Ruhm. Die Antikörper tanzen ein letztes Mal vor halb leerem Saal und gehen dann einfach nach Hause."};
+  else               e={title:"Solide zwanzig Jahre", text:"Keine Weltkarriere, kein Totalschaden. Die Antikörper haben zwei Jahrzehnte durchgehalten, und das ist mehr, als die meisten schaffen."};
+  const extra=[];
+  if(S.visited.length>=ORGA.length)     extra.push("Alle elf Reiseorte bereist.");
+  if(S.gimmicks.length>=GIMMICKS.length) extra.push("Komplett ausgestattet mit allen Gimmicks.");
+  if(S.kasse>=1500)                      extra.push("Und obendrein steinreich.");
+  if(S.left.length>0)                    extra.push(S.left.length+" Mitglied"+(S.left.length>1?"er sind":" ist")+" unterwegs abgesprungen.");
+  if(extra.length) e.text=e.text+" "+extra.join(" ");
+  return e;
+}
+
+function buildCardText(){
+  const e=endingFor();
+  const badges=getBadges().map(x=>x.label).join(" · ");
+  const m=getTopMoment();
+  const lines=[
+    "★ ANTIKÖRPER: KARRIERE-BILANZ ★",
+    "2007 – "+S.jahr+"  ·  "+e.title,
+    "Completion: "+completion()+"%  ·  "+computeScore()+" Punkte",
+    "Abzeichen: "+badges
+  ];
+  if(m) lines.push("Moment des Jahrzehnts ("+m.jahr+"): „"+m.text+"“");
+  lines.push(
+    "Auftritte "+S.shows+" · Umzüge "+S.fasching+" · Städtetrips "+S.trips,
+    "Spaß "+Math.round(S.spass)+" · Berüchtigt "+Math.round(S.ber)+" · Kasse €"+Math.round(S.kasse),
+    "Besetzung "+S.roster.length+"/12 · Orte "+S.visited.length+"/11 · Gimmicks "+S.gimmicks.length+"/6 · Ziele "+S.achieved.length+"/"+MILESTONES.length,
+    "Ausgetreten: "+(S.left.length? S.left.join(", ") : "niemand")
+  );
+  return lines.join("\n");
+}
+
+function showOver(){
+  const e=endingFor();
+  document.getElementById("overTitle").textContent=e.title;
+  document.getElementById("overText").textContent=e.text;
+  const badges=getBadges().map(x=>`<span class="badge ${x.kind}">${x.icon} ${x.label}</span>`).join("");
+  const m=getTopMoment();
+  const moment=m?`<div class="moment"><div class="mlabel">★ Moment des Jahrzehnts · ${m.jahr}</div><div class="mtext">„${m.text}“</div></div>`:"";
+  document.getElementById("overStats").innerHTML=
+    `<div class="hero-pct">${completion()}%</div>`+
+    `<div class="hero-sub">Completion &middot; ${computeScore()} Punkte</div>`+
+    `<div class="badges">${badges}</div>`+
+    moment+
+    `<div class="statlines">`+
+    `2007 – ${S.jahr} &middot; ${S.shows} Auftritte &middot; ${S.fasching} Umzüge &middot; ${S.trips} Städtetrips<br>`+
+    `Spaß ${Math.round(S.spass)} &middot; Berüchtigt ${Math.round(S.ber)} &middot; Kasse €${Math.round(S.kasse)}<br>`+
+    `Besetzung ${S.roster.length}/12 &middot; Orte ${S.visited.length}/11 &middot; Gimmicks ${S.gimmicks.length}/6 &middot; Ziele ${S.achieved.length}/${MILESTONES.length}`+
+    `</div>`+
+    `<div class="left-list">${S.left.length? "Ausgetreten: "+S.left.join(", ") : "Alle zwölf sind bis zum Schluss dabei geblieben."}</div>`;
+  document.getElementById("copyhint").textContent="";
+  setActionsDisabled(true);
+  document.getElementById("over").classList.add("show");
+}
+
+async function copyCard(){
+  const txt=buildCardText();
+  const hint=document.getElementById("copyhint");
+  try{
+    await navigator.clipboard.writeText(txt);
+    hint.textContent="Bilanz kopiert. Einfach einfügen und teilen.";
+  }catch(e){
+    hint.textContent=txt.replace(/\n/g," · ");
+  }
+}
+
+// Bilanz als PNG-Bild rendern und herunterladen (ohne externe Bibliothek)
+async function saveCard(){
+  const hint=document.getElementById("copyhint");
+  try{ if(document.fonts&&document.fonts.ready) await document.fonts.ready; }catch(e){}
+  const W=1080,H=1520, x=(document.createElement("canvas")).getContext("2d");
+  x.canvas.width=W; x.canvas.height=H;
+  const AN='Anton, "Arial Black", Impact, sans-serif';
+  const BA='Barlow, Arial, sans-serif';
+  // Hintergrund
+  let g=x.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,"#1c1740"); g.addColorStop(.5,"#0c0e20"); g.addColorStop(1,"#05060e");
+  x.fillStyle=g; x.fillRect(0,0,W,H);
+  x.strokeStyle="rgba(236,59,156,.65)"; x.lineWidth=6; x.strokeRect(24,24,W-48,H-48);
+  const ctr=(t,y,font,color)=>{ x.font=font; x.fillStyle=color; x.textAlign="center"; x.fillText(t,W/2,y); };
+  const rr=(rx,ry,rw,rh,rad)=>{ x.beginPath(); x.moveTo(rx+rad,ry); x.arcTo(rx+rw,ry,rx+rw,ry+rh,rad); x.arcTo(rx+rw,ry+rh,rx,ry+rh,rad); x.arcTo(rx,ry+rh,rx,ry,rad); x.arcTo(rx,ry,rx+rw,ry,rad); x.closePath(); };
+  const wrap=(t,y,maxW,lh,font,color,align)=>{ x.font=font; x.fillStyle=color; x.textAlign=align||"center";
+    const cx=align==="left"?90:W/2; const words=t.split(" "); let line="", yy=y;
+    for(const w of words){ const test=line?line+" "+w:w; if(x.measureText(test).width>maxW && line){ x.fillText(line,cx,yy); line=w; yy+=lh; } else line=test; }
+    if(line){ x.fillText(line,cx,yy); yy+=lh; } return yy; };
+
+  const e=endingFor();
+  ctr("ANTIKÖRPER",150,"92px "+AN,"#ec3b9c");
+  ctr("KARRIERE-BILANZ · 2007–"+S.jahr,212,"italic 38px "+AN,"#38d9e8");
+  let y=wrap(e.title,300,W-140,60,"56px "+AN,"#eaf0ff");
+  y=wrap(e.text,y+8,W-160,44,"29px "+BA,"#98a1c6")+30;
+
+  // Completion Hero
+  ctr(completion()+"%",y+96,"128px "+AN,"#ec3b9c"); y+=150;
+  ctr(("Completion · "+computeScore()+" Punkte").toUpperCase(),y,"28px "+BA,"#98a1c6"); y+=54;
+
+  // Badges (max 6, zwei Spalten)
+  const badges=getBadges();
+  const bw=440,bh=64,gap=24,cols=2,startX=(W-(cols*bw+gap))/2;
+  badges.forEach((b,i)=>{
+    const col=i%cols, row=Math.floor(i/cols);
+    const bx=startX+col*(bw+gap), by=y+row*(bh+16);
+    const pink=b.kind==="m";
+    x.fillStyle=pink?"rgba(236,59,156,.16)":"rgba(56,217,232,.14)";
+    x.strokeStyle=pink?"rgba(236,59,156,.6)":"rgba(56,217,232,.6)"; x.lineWidth=2;
+    rr(bx,by,bw,bh,16); x.fill(); x.stroke();
+    x.textAlign="left"; x.font="30px "+BA; x.fillStyle="#fff"; x.fillText(b.icon,bx+18,by+43);
+    x.font="bold 26px "+BA; x.fillStyle="#eaf0ff"; x.fillText(b.label,bx+64,by+42);
+  });
+  y+=Math.ceil(badges.length/cols)*(bh+16)+18;
+
+  // Top-Moment
+  const m=getTopMoment();
+  if(m){
+    const boxY=y, boxW=W-140;
+    x.textAlign="left";
+    x.font="22px "+BA; // Höhe grob schätzen
+    const tmpWords=("„"+m.text+"“").split(" "); let ln=1,cur="";
+    for(const w of tmpWords){ const t=cur?cur+" "+w:w; if(x.measureText(t).width>boxW-60 && cur){ ln++; cur=w; } else cur=t; }
+    const boxH=54+ln*32+18;
+    x.fillStyle="rgba(255,255,255,.05)"; x.strokeStyle="rgba(56,217,232,.45)"; x.lineWidth=2;
+    rr(70,boxY,boxW,boxH,14); x.fill(); x.stroke();
+    x.fillStyle="#38d9e8"; rr(70,boxY,7,boxH,4); x.fill();
+    x.fillStyle="#38d9e8"; x.font="bold 20px "+BA; x.fillText("★ MOMENT DES JAHRZEHNTS · "+m.jahr,100,boxY+38);
+    wrap("„"+m.text+"“",boxY+74,boxW-60,32,"24px "+BA,"#eaf0ff","left");
+    y=boxY+boxH+30;
+  }
+
+  // Stats
+  const line=(t)=>{ ctr(t,y,"27px "+BA,"#cdd6f5"); y+=48; };
+  line(S.shows+" Auftritte · "+S.fasching+" Umzüge · "+S.trips+" Städtetrips");
+  line("Spaß "+Math.round(S.spass)+" · Berüchtigt "+Math.round(S.ber)+" · Kasse €"+Math.round(S.kasse));
+  line("Besetzung "+S.roster.length+"/12 · Orte "+S.visited.length+"/11 · Gimmicks "+S.gimmicks.length+"/6 · Ziele "+S.achieved.length+"/"+MILESTONES.length);
+  y+=8;
+  wrap(S.left.length? "Ausgetreten: "+S.left.join(", ") : "Alle zwölf sind bis zum Schluss dabei geblieben.", y, W-150, 42, "26px "+BA, "#38d9e8");
+
+  ctr("Antikörper-Simulator",H-56,"italic 26px "+BA,"#5f6690");
+
+  x.canvas.toBlob((blob)=>{
+    if(!blob){ hint.textContent="Bild konnte nicht erzeugt werden."; return; }
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url; a.download="antikoerper-bilanz.png";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+    hint.textContent="Bild gespeichert. Auf dem iPhone öffnet es sich ggf. nur: dann lange darauf tippen und sichern.";
+  }, "image/png");
+}
+
+function resetGame(){
+  S=fresh();
+  pendingDilemma=null;
+  pendingOrga=null;
+  document.getElementById("over").classList.remove("show");
+  document.getElementById("copyhint").textContent="";
+  setActionsDisabled(false);
+  const card=document.getElementById("card");
+  document.getElementById("stage").classList.remove("lit");
+  card.classList.remove("show");
+  setTimeout(()=>{
+    card.innerHTML='<p class="idle-text">Es ist 2007. Zwölf Männer, ein Traum, keinerlei Impulskontrolle.<br>Was machen die Antikörper heute?</p>';
+    card.classList.add("show");
+  },80);
+  render();
+}
+
+resetGame();
+</script>
+</body>
+</html>
